@@ -1057,7 +1057,7 @@ int main(void)
 
     init_game();
 
-    printf("Naval Convoy server starting...\n");
+    printf("Convoy Chase server starting...\n");
 
     int r = comm_server_init(handle_connect, handle_action, handle_chat);
 

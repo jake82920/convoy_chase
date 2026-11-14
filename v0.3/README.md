@@ -11,4 +11,10 @@
     - git clone https://github.com/jake82920/convoy_chase.git
 3. Run the install script
     - sudo make install
+4. Set passwords for each user
+    - sudo passwd [username]
 
+## RUNNING THE GAME
+
+1. Start by running `./server` on user server
+2. This will wait for each player to connect by executing `./player [1-4]`

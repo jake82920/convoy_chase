@@ -86,10 +86,10 @@ int main(int argc, char **argv)
     }
 
     printf("=================================\n");
-    printf("       NAVAL CONVOY\n");
+    printf("       CONVOY CHASE\n");
     printf("=================================\n\n");
 
-    rl_readline_name = "naval-convoy";
+    rl_readline_name = "convoy-chase";
 
     int r = comm_init(
         player_id,
