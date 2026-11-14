@@ -1,4 +1,4 @@
-Ct = gcc
+CC = gcc
 CFLAGS = -Wall -Wextra -Wpedantic -std=c11 -O2
 LDLIBS = -lsystemd -lreadline
 

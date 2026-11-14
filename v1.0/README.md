@@ -2,7 +2,7 @@
 
 ## FULL INSTALLATION GUIDE
 
-0. This guide contains all steps for installation on Ubuntu 26.10 LTS
+0. This guide contains all steps for installation on Ubuntu 26 LTS
     - Feel free to use your preferred installation method
     - It works on Fedora too, if you're into that
 1. Install GNU make
