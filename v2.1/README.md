@@ -138,6 +138,33 @@ README.md   Game and project documentation
 
 ## Communication
 
-All communication between `server.c` and `player.c` is performed through the interface defined in `comm.h`.
+The communication library is implemented in **`comm.c`**, with its public interface declared in **`comm.h`**. All communication between `server.c` and `player.c` goes through this library. The game code does not access sockets directly.
 
-The distributed
+The distributed implementation uses TCP/IP on port **8292**. The server is authoritative: player clients send actions and chat messages to the server, and the server sends game messages, prompts, and input-mode changes back to the clients. `comm.c` uses an application-level framing protocol so messages can be reconstructed correctly from the TCP byte stream.
+
+### Communication API
+
+Player-side functions:
+
+- `comm_init()` - connects a player to the server and registers the player's message, action-request, and input-mode callbacks.
+- `comm_run()` - runs the player communication event loop.
+- `comm_send_action()` - sends a requested game action to the server.
+- `comm_send_chat()` - sends a discussion message to the server.
+
+Server-side functions:
+
+- `comm_server_init()` - creates the TCP server and registers callbacks for player connections, actions, and chat messages.
+- `comm_server_run()` - runs the server communication event loop.
+- `comm_send_message()` - sends a message to one player.
+- `comm_request_action()` - prompts one player for a game action.
+- `comm_set_input_mode()` - changes whether one player may enter chat, an action, or no input.
+- `comm_broadcast_input_mode()` - changes the input mode for all players.
+- `comm_broadcast()` - sends a message to all connected players.
+- `comm_set_timer()` - starts a one-shot server timer with a callback.
+- `comm_cancel_timer()` - cancels the active server timer.
+
+Shared cleanup:
+
+- `comm_close()` - releases sockets, timers, and terminal resources.
+
+The library also handles player registration, nonblocking socket I/O, message framing, connection cleanup, and multiplexing of simultaneous clients. This keeps all inter-user and network communication contained in the communication library while `server.c` remains responsible for game state and rules and `player.c` remains responsible for the terminal interface.
