@@ -15,7 +15,7 @@ DBUS_POLICY_DIR = /etc/dbus-1/system.d
 
 
 # =========================================================
-# Normal build
+# Build
 # =========================================================
 
 all: $(SERVER) $(PLAYER)
@@ -40,16 +40,24 @@ install: check-root dependencies all users install-binaries install-dbus
 	@echo " Naval Convoy installation complete"
 	@echo "========================================="
 	@echo ""
+	@echo "SSH server is installed and running."
+	@echo ""
 	@echo "Set account passwords with:"
 	@echo "  passwd server"
 	@echo "  passwd player1"
 	@echo "  passwd player2"
 	@echo "  passwd player3"
 	@echo "  passwd player4"
+	@echo ""
+	@echo "Example connection:"
+	@echo "  ssh player1@<server-ip>"
+	@echo ""
+	@echo "Then run:"
+	@echo "  ./player 1"
 
 
 # =========================================================
-# Verify installation is running as root
+# Root check
 # =========================================================
 
 check-root:
@@ -66,11 +74,21 @@ check-root:
 
 dependencies:
 	@echo "Installing required Ubuntu packages..."
+
 	apt-get update
+
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
 		build-essential \
 		libsystemd-dev \
-		libreadline-dev
+		libreadline-dev \
+		openssh-server
+
+	@echo "Enabling SSH..."
+
+	systemctl enable ssh
+	systemctl start ssh
+
+	@echo "SSH is running."
 
 
 # =========================================================
@@ -91,27 +109,32 @@ users:
 # =========================================================
 # Install executables
 #
-# Each account receives only its appropriate executable.
+# Each user receives only the executable that they need.
 # =========================================================
 
 install-binaries:
 	@echo "Installing server executable..."
+
 	install -o server -g server -m 700 \
 		$(SERVER) /home/server/server
 
 	@echo "Installing player1 executable..."
+
 	install -o player1 -g player1 -m 700 \
 		$(PLAYER) /home/player1/player
 
 	@echo "Installing player2 executable..."
+
 	install -o player2 -g player2 -m 700 \
 		$(PLAYER) /home/player2/player
 
 	@echo "Installing player3 executable..."
+
 	install -o player3 -g player3 -m 700 \
 		$(PLAYER) /home/player3/player
 
 	@echo "Installing player4 executable..."
+
 	install -o player4 -g player4 -m 700 \
 		$(PLAYER) /home/player4/player
 
@@ -133,12 +156,23 @@ install-dbus:
 		systemctl reload dbus 2>/dev/null || true; \
 	fi
 
+	@echo "D-Bus policy installed."
+
 
 # =========================================================
-# Uninstall
+# Uninstall game environment
 #
 # WARNING:
-# This deletes the five game users and their home directories.
+# Deletes:
+#   server
+#   player1
+#   player2
+#   player3
+#   player4
+#
+# including their home directories.
+#
+# SSH and installed Ubuntu packages are NOT removed.
 #
 # Run:
 #     sudo make uninstall
@@ -160,6 +194,7 @@ uninstall: check-root
 		fi; \
 	done
 
+	@echo ""
 	@echo "Game environment removed."
 
 
