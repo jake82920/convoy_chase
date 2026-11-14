@@ -1,104 +1,144 @@
-# Convoy Chase - Distributed TCP Version
+# Convoy Chase - Distributed Version
 
-This version replaces the Project 1 system D-Bus transport with a custom TCP/IP protocol. The game logic in `server.c` remains unchanged. The same repository is cloned onto every VM, and each VM installs only the role it needs.
+Convoy Chase is a four-player terminal game with one authoritative server and four remote player clients. This version uses a small custom protocol over raw TCP sockets instead of the local D-Bus transport used by the earlier version.
 
-## Architecture
+The same repository is used on every machine. Install the **server role** on one VM and the **client role** on each player VM.
 
-- `server.c`: authoritative game state and rules
-- `player.c`: terminal user interface
-- `comm.h`: communication abstraction used by the game
-- `comm.c`: raw POSIX TCP transport, message framing, `poll()` event loops, and server timers
-- `Makefile`: builds and installs either the server role, client role, or both
+## Files
+
+- `server.c` - game rules and authoritative game state
+- `player.c` - player terminal interface
+- `comm.c` / `comm.h` - TCP communication layer, message framing, `poll()` loops, and timers
+- `Makefile` - builds and installs the server or client role, including required packages
 
 The server listens on TCP port **8292**.
 
-## Repository Layout
+## Server VM
 
-Every machine uses the same repository. You do not need separate server and client repositories.
-
-```text
-Convoy-Chase/
-|-- server.c
-|-- player.c
-|-- comm.c
-|-- comm.h
-|-- Makefile
-`-- README_DISTRIBUTED.md
-```
-
-## Server VM Installation
-
-Clone the repository on the VM that will host the authoritative game server. From the repository directory, run:
+On a clean Ubuntu Server VM, clone the repository and enter this version's directory. Then run:
 
 ```bash
 sudo make install-server
 ```
 
-This installs the required build dependencies, builds the server, and installs it as:
+That command installs the required compiler tools, removes obsolete Convoy Chase/D-Bus installation artifacts if they exist, builds the server, and installs:
 
 ```text
 /usr/local/bin/convoy-server
 ```
 
-Start the server with:
+Start the game server with:
 
 ```bash
 convoy-server
 ```
 
-The server listens for player connections on TCP port 8292.
+Find the server VM's address with:
 
-## Client VM Installation
+```bash
+hostname -I
+```
 
-Clone the same repository on every player VM. From the repository directory, run:
+Use that address when starting the four clients.
+
+If Ubuntu's UFW firewall is enabled, allow the game port once:
+
+```bash
+sudo ufw allow 8292/tcp
+```
+
+## Client VM
+
+On each player VM, clone the same repository and run:
 
 ```bash
 sudo make install-client
 ```
 
-This installs the required build dependencies, builds the player client, and installs it as:
+That command installs the compiler and Readline development package, removes obsolete Convoy Chase/D-Bus installation artifacts if they exist, builds the client, and installs:
 
 ```text
 /usr/local/bin/convoy-player
 ```
 
-A player connects using:
+Connect with:
 
 ```bash
 convoy-player <captain-number> <server-address>
 ```
 
-For example, if the server VM is `192.168.56.10`:
+For a server at `192.168.122.50`, the four VMs would run:
 
 ```bash
-convoy-player 1 192.168.56.10
+convoy-player 1 192.168.122.50
+convoy-player 2 192.168.122.50
+convoy-player 3 192.168.122.50
+convoy-player 4 192.168.122.50
 ```
 
-The other clients would use:
+Captain numbers are 1 through 4, and only one active connection may claim a captain number.
 
-```bash
-convoy-player 2 192.168.56.10
-convoy-player 3 192.168.56.10
-convoy-player 4 192.168.56.10
+## Quick Deployment
+
+The complete five-VM setup is therefore:
+
+```text
+Server VM:   sudo make install-server   -> convoy-server
+Player 1 VM: sudo make install-client   -> convoy-player 1 <server-ip>
+Player 2 VM: sudo make install-client   -> convoy-player 2 <server-ip>
+Player 3 VM: sudo make install-client   -> convoy-player 3 <server-ip>
+Player 4 VM: sudo make install-client   -> convoy-player 4 <server-ip>
 ```
 
-Each captain number may have only one active TCP connection.
+No D-Bus configuration, special Linux users, RPC framework, or separate server/client repository is required.
 
-## Local Development Installation
+## Game Instructions
 
-To install both the server and client on one machine for localhost development:
+### A SHIP ON THE HIGH SEAS
+
+A Royal Navy convoy carrying valuable cargo is racing toward port. But one Captain is secretly a **PIRATE INFILTRATOR**, working to delay the fleet until pursuing pirates can catch it.
+
+**ROYAL NAVY:** Advance the convoy 4 times and reach port.
+
+**PIRATE:** Cause 4 delays before the convoy reaches port.
+
+### HOW A ROUND WORKS
+
+One Captain becomes Commodore and proposes an action.
+
+**SAIL**
+
+The Commodore selects 2 or 3 Captains for a mission. Selected Captains secretly commit manpower. The mission needs 6 total manpower to succeed. Success advances the convoy; failure advances the pirates.
+
+**ANCHOR**
+
+The fleet stops so exhausted crews can rest. Every Captain recovers 3 manpower, up to a maximum of 6. But the delay also advances the pirates.
+
+### VOTING AND STRATEGY
+
+Every proposal must be approved by the fleet. A tie is a rejection. Three rejected or missed proposals also advance the pirates.
+
+Manpower is limited. Watch who contributes, who pushes to anchor, and which missions mysteriously fail.
+
+Discuss, accuse, bluff, and cooperate. One of you is working against the fleet.
+
+**Trust carefully.**
+
+## Local Testing
+
+To install both roles on one machine:
 
 ```bash
 sudo make install
 ```
 
-Then run:
+Start the server:
 
 ```bash
 convoy-server
 ```
 
-In four other terminals:
+Then use four other terminals:
 
 ```bash
 convoy-player 1 127.0.0.1
@@ -107,126 +147,71 @@ convoy-player 3 127.0.0.1
 convoy-player 4 127.0.0.1
 ```
 
-## Build Without Installing
+This is useful for checking game behavior before testing VM networking.
 
-To build both programs in the repository:
+## Build Check
 
-```bash
-make
-```
-
-To build only the server:
+To compile both programs without installing them:
 
 ```bash
-make server
+make check
 ```
 
-To build only the client:
+The server build does not require Readline. The client uses Readline for interactive terminal input.
 
-```bash
-make client
-```
+## Networking Check
 
-The current shared `comm.c` contains the Readline-based client event-loop support, so both builds link against Readline even though the server does not directly use terminal input.
-
-## Network Setup
-
-All client VMs must be able to reach the server VM over TCP port 8292.
-
-Find the server VM's IP address with:
-
-```bash
-ip addr
-```
-
-From a client VM, basic connectivity can be checked with:
+Before starting a full game, verify that a client can reach the server VM:
 
 ```bash
 ping <server-ip>
 ```
 
-If UFW is enabled on the server VM, allow the game port:
+If the server is running, you can also test its TCP port with `nc` if netcat is installed:
 
 ```bash
-sudo ufw allow 8292/tcp
+nc -vz <server-ip> 8292
 ```
 
-The client VMs do not need to accept incoming game connections. They initiate outbound TCP connections to the server.
-
-## Recommended VM Topology
-
-```text
-                 TCP/IP
-
-Player 1 VM ---------\
-Player 2 VM ----------\
-Player 3 VM -----------+--> Server VM : 8292
-Player 4 VM ----------/
-```
-
-Only the server VM runs `convoy-server`. Each player VM runs one `convoy-player` process with its assigned captain number.
-
-## TCP Protocol
-
-TCP is a byte stream, so `comm.c` implements explicit application-level message framing. Each protocol message begins with two 32-bit unsigned integers in network byte order:
-
-1. message type
-2. payload length
-
-The payload immediately follows the header. The receiver retains partial headers and payloads until a complete application message has arrived.
-
-Protocol message types represent registration, ordinary server messages, action requests, input-mode changes, player actions, and chat messages.
-
-## Testing Sequence
-
-Before using five VMs, test the transport incrementally.
-
-First, run the server and four clients on one VM using `127.0.0.1`. This verifies the game and TCP protocol without introducing VM networking problems.
-
-Next, run the server on one VM and one player on a second VM. This verifies that the server is reachable across the VM network.
-
-Finally, run the complete distributed system:
-
-```text
-Server VM
-|-- TCP connection: Player 1 VM
-|-- TCP connection: Player 2 VM
-|-- TCP connection: Player 3 VM
-`-- TCP connection: Player 4 VM
-```
-
-Play a complete game and verify discussion, proposals, crew selection, voting, manpower commitment, timeouts, warnings, and victory conditions.
+`nc` is only a troubleshooting tool and is not required by Convoy Chase.
 
 ## Uninstall
 
-On a server VM:
+Server VM:
 
 ```bash
 sudo make uninstall-server
 ```
 
-On a client VM:
+Client VM:
 
 ```bash
 sudo make uninstall-client
 ```
 
-On a development machine where both were installed:
+Development machine with both roles:
 
 ```bash
 sudo make uninstall
 ```
 
-These targets remove the installed Convoy Chase binaries. They do not remove general development packages such as GCC or Readline because those packages may be used by other software.
+Uninstall removes Convoy Chase binaries. It intentionally does not remove GCC, Readline, Linux users, or other general system packages.
 
-## Project 1 vs. Projects 2/3
+## Architecture
 
-Project 1 used the system D-Bus as an advanced local IPC mechanism between Linux processes. The distributed version refactors the communication subsystem to use raw POSIX TCP sockets. The application-facing `comm.h` abstraction is retained, allowing the game logic to remain essentially unchanged while the transport changes from local IPC to communication across independent machines.
+```text
+Player 1 VM ---------\
+Player 2 VM ----------\
+Player 3 VM -----------+---- TCP/IP ----> Convoy Server : 8292
+Player 4 VM ----------/
+```
 
-The distributed implementation uses `socket()`, `bind()`, `listen()`, `accept()`, `connect()`, `send()`, `recv()`, `poll()`, and `timerfd` directly rather than an RPC or networking framework.
+`server.c` remains responsible for the game. The communication details are isolated in `comm.c`, allowing the transport to change without embedding socket code throughout the game logic.
 
-The resulting deployment model is intentionally simple: clone one repository everywhere, install the server role on the server VM, and install the client role on each player VM.
+TCP is a byte stream, so `comm.c` adds explicit message framing. Each message contains a 32-bit message type and a 32-bit payload length in network byte order, followed by the payload. The receiver retains partial data until a complete message has arrived.
+
+The implementation directly uses POSIX/Linux facilities including `socket()`, `bind()`, `listen()`, `accept()`, `connect()`, `send()`, `recv()`, `poll()`, and `timerfd` rather than a networking framework.
 
 ## Current Scope
 
-The server rejects invalid captain numbers and duplicate simultaneous captain connections. This version does not provide cryptographic authentication or automatic restoration of game state after a disconnected player reconnects. Those features can be added separately without changing the core TCP transport design.
+The server rejects invalid captain numbers and duplicate simultaneous captain connections. If a player disconnects during an active game, the server detects the lost TCP connection, but automatic game-state restoration/reconnection is not currently implemented.

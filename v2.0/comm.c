@@ -15,8 +15,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef COMM_SERVER
 #include <readline/history.h>
 #include <readline/readline.h>
+#endif
 
 #include "comm.h"
 
@@ -60,7 +62,9 @@ static int player_fds[NUM_PLAYERS] = {-1, -1, -1, -1};
 static int pending_fds[NUM_PLAYERS] = {-1, -1, -1, -1};
 static recv_state player_rx[NUM_PLAYERS];
 static recv_state pending_rx[NUM_PLAYERS];
+#ifndef COMM_SERVER
 static recv_state server_rx;
+#endif
 
 static int timer_fd = -1;
 static timer_handler active_timer_cb = NULL;
@@ -68,16 +72,20 @@ static timer_handler active_timer_cb = NULL;
 static int local_player_id = -1;
 static comm_input_mode local_input_mode = COMM_INPUT_NONE;
 
+#ifndef COMM_SERVER
 static message_handler player_message_cb = NULL;
 static action_handler player_action_cb = NULL;
 static input_mode_handler player_mode_cb = NULL;
+#endif
 
 static connect_handler server_connect_cb = NULL;
 static server_action_handler server_action_cb = NULL;
 static server_chat_handler server_chat_cb = NULL;
 
+#ifndef COMM_SERVER
 static int stdin_eof = 0;
 static char *completed_line = NULL;
+#endif
 
 static void reset_rx(recv_state *rx)
 {
@@ -158,6 +166,7 @@ static int send_string_packet(int fd, uint32_t type, const char *text)
     return send_packet(fd, type, text, (uint32_t)length);
 }
 
+#ifndef COMM_SERVER
 static void readline_line_ready(char *line)
 {
     if (line == NULL)
@@ -173,6 +182,9 @@ static void readline_line_ready(char *line)
     completed_line = line;
 }
 
+#endif
+
+#ifndef COMM_SERVER
 static void change_local_mode(comm_input_mode mode)
 {
     local_input_mode = mode;
@@ -180,6 +192,9 @@ static void change_local_mode(comm_input_mode mode)
         player_mode_cb(mode);
 }
 
+#endif
+
+#ifndef COMM_SERVER
 static int dispatch_player_packet(uint32_t type, const unsigned char *payload, uint32_t length)
 {
     char text[MAX_PAYLOAD + 1U];
@@ -227,6 +242,8 @@ static int dispatch_player_packet(uint32_t type, const unsigned char *payload, u
         return -EPROTO;
     }
 }
+
+#endif
 
 static int dispatch_server_packet(int player_id, uint32_t type, const unsigned char *payload,
                                   uint32_t length)
@@ -310,10 +327,13 @@ static int receive_packets(int fd, recv_state *rx,
     }
 }
 
+#ifndef COMM_SERVER
 static int player_dispatch_adapter(uint32_t type, const unsigned char *payload, uint32_t length)
 {
     return dispatch_player_packet(type, payload, length);
 }
+
+#endif
 
 static int current_server_player = -1;
 static int server_dispatch_adapter(uint32_t type, const unsigned char *payload, uint32_t length)
@@ -321,6 +341,7 @@ static int server_dispatch_adapter(uint32_t type, const unsigned char *payload, 
     return dispatch_server_packet(current_server_player, type, payload, length);
 }
 
+#ifndef COMM_SERVER
 static int connect_to_server(const char *address)
 {
     struct addrinfo hints;
@@ -352,6 +373,9 @@ static int connect_to_server(const char *address)
     return fd;
 }
 
+#endif
+
+#ifndef COMM_SERVER
 int comm_init(int player_id, const char *server_address, message_handler message_cb,
               action_handler action_cb, input_mode_handler mode_cb)
 {
@@ -396,6 +420,17 @@ int comm_send_chat(const char *message)
         return -EINVAL;
     return send_string_packet(server_fd, MSG_CHAT, message);
 }
+
+#else
+int comm_init(int player_id, const char *server_address, message_handler message_cb,
+              action_handler action_cb, input_mode_handler mode_cb)
+{
+    (void)player_id; (void)server_address; (void)message_cb; (void)action_cb; (void)mode_cb;
+    return -ENOSYS;
+}
+int comm_send_action(const char *action) { (void)action; return -ENOSYS; }
+int comm_send_chat(const char *message) { (void)message; return -ENOSYS; }
+#endif
 
 static int create_listener(void)
 {
@@ -542,6 +577,7 @@ int comm_cancel_timer(void)
     return 0;
 }
 
+#ifndef COMM_SERVER
 static int process_completed_line(void)
 {
     if (completed_line == NULL)
@@ -575,6 +611,8 @@ static int process_completed_line(void)
     free(line);
     return r;
 }
+
+#endif
 
 static int handle_timer(void)
 {
@@ -818,6 +856,7 @@ static int run_server_loop(void)
     }
 }
 
+#ifndef COMM_SERVER
 static int run_player_loop(void)
 {
     for (;;)
@@ -868,16 +907,24 @@ static int run_player_loop(void)
     }
 }
 
+#endif
+
+#ifndef COMM_SERVER
 int comm_run(void) { return run_player_loop(); }
+#else
+int comm_run(void) { return -ENOSYS; }
+#endif
 int comm_server_run(void) { return run_server_loop(); }
 
 void comm_close(void)
 {
+#ifndef COMM_SERVER
     if (!is_server && local_player_id >= 0)
         rl_callback_handler_remove();
 
     free(completed_line);
     completed_line = NULL;
+#endif
 
     if (server_fd >= 0)
     {
@@ -908,5 +955,7 @@ void comm_close(void)
     active_timer_cb = NULL;
     local_player_id = -1;
     local_input_mode = COMM_INPUT_NONE;
+#ifndef COMM_SERVER
     stdin_eof = 0;
+#endif
 }

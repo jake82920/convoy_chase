@@ -1,65 +1,137 @@
 CC = gcc
+
 CFLAGS = -Wall -Wextra -Wpedantic -std=c11 -O2
-LDLIBS = -lreadline
 
-SERVER = server
-CLIENT = player
+SERVER_CFLAGS = $(CFLAGS) -DCOMM_SERVER_ONLY
+CLIENT_CFLAGS = $(CFLAGS)
 
-PREFIX ?= /usr/local
+SERVER = convoy-server
+CLIENT = convoy-player
+
+PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
-SERVER_INSTALL_NAME = convoy-server
-CLIENT_INSTALL_NAME = convoy-player
+.PHONY: all server client clean \
+        install install-server install-client \
+        uninstall uninstall-server uninstall-client
 
-.PHONY: all client dependencies dependencies-server dependencies-client \
-        install install-server install-client uninstall uninstall-server \
-        uninstall-client clean
+
+# ============================================================
+# Build
+# ============================================================
 
 all: $(SERVER) $(CLIENT)
 
+server: $(SERVER)
+
 client: $(CLIENT)
 
+
 $(SERVER): server.c comm.c comm.h
-	$(CC) $(CFLAGS) -o $@ server.c comm.c $(LDLIBS)
+	$(CC) $(SERVER_CFLAGS) -o $@ server.c comm.c
+
 
 $(CLIENT): player.c comm.c comm.h
-	$(CC) $(CFLAGS) -o $@ player.c comm.c $(LDLIBS)
+	$(CC) $(CLIENT_CFLAGS) -o $@ player.c comm.c -lreadline
 
-# comm.c contains the shared Readline-based event-loop support, so both
-# builds currently require libreadline-dev.
-dependencies: dependencies-server dependencies-client
 
-dependencies-server:
+# ============================================================
+# Installation
+#
+# These targets are intended for fresh Ubuntu Server VMs.
+# Dependencies are installed automatically.
+#
+# Server:
+#   sudo make install-server
+#
+# Client:
+#   sudo make install-client
+#
+# ============================================================
+
+install-server:
+	@echo "Installing Convoy Chase server dependencies..."
+	apt-get update
+	apt-get install -y build-essential
+	@echo
+	@echo "Building Convoy Chase server..."
+	$(MAKE) clean
+	$(MAKE) server
+	@echo
+	@echo "Installing $(SERVER) to $(BINDIR)..."
+	install -d $(BINDIR)
+	install -m 0755 $(SERVER) $(BINDIR)/$(SERVER)
+	@echo
+	@echo "============================================"
+	@echo " Convoy Chase server installed successfully"
+	@echo "============================================"
+	@echo
+	@echo "Run:"
+	@echo "  $(SERVER)"
+	@echo
+
+
+install-client:
+	@echo "Installing Convoy Chase client dependencies..."
 	apt-get update
 	apt-get install -y build-essential libreadline-dev
+	@echo
+	@echo "Building Convoy Chase client..."
+	$(MAKE) clean
+	$(MAKE) client
+	@echo
+	@echo "Installing $(CLIENT) to $(BINDIR)..."
+	install -d $(BINDIR)
+	install -m 0755 $(CLIENT) $(BINDIR)/$(CLIENT)
+	@echo
+	@echo "============================================"
+	@echo " Convoy Chase client installed successfully"
+	@echo "============================================"
+	@echo
+	@echo "Run:"
+	@echo "  $(CLIENT) <captain 1-4> <server-address>"
+	@echo
+	@echo "Example:"
+	@echo "  $(CLIENT) 1 192.168.122.100"
+	@echo
 
-dependencies-client:
+
+# Install both roles on one machine.
+# Useful for local development/testing.
+
+install:
 	apt-get update
 	apt-get install -y build-essential libreadline-dev
-
-# Install both roles on one machine for localhost development/testing.
-install: install-server install-client
-
-# Intended for the authoritative server VM.
-install-server: dependencies-server $(SERVER)
+	$(MAKE) clean
+	$(MAKE) all
 	install -d $(BINDIR)
-	install -m 755 $(SERVER) $(BINDIR)/$(SERVER_INSTALL_NAME)
-	@echo "Installed server: $(BINDIR)/$(SERVER_INSTALL_NAME)"
+	install -m 0755 $(SERVER) $(BINDIR)/$(SERVER)
+	install -m 0755 $(CLIENT) $(BINDIR)/$(CLIENT)
+	@echo
+	@echo "Convoy Chase server and client installed."
+	@echo
 
-# Intended for each player/client VM.
-install-client: dependencies-client $(CLIENT)
-	install -d $(BINDIR)
-	install -m 755 $(CLIENT) $(BINDIR)/$(CLIENT_INSTALL_NAME)
-	@echo "Installed client: $(BINDIR)/$(CLIENT_INSTALL_NAME)"
+
+# ============================================================
+# Uninstall
+# ============================================================
+
+uninstall-server:
+	rm -f $(BINDIR)/$(SERVER)
+	@echo "Convoy Chase server removed."
+
+
+uninstall-client:
+	rm -f $(BINDIR)/$(CLIENT)
+	@echo "Convoy Chase client removed."
+
 
 uninstall: uninstall-server uninstall-client
 
-uninstall-server:
-	rm -f $(BINDIR)/$(SERVER_INSTALL_NAME)
 
-uninstall-client:
-	rm -f $(BINDIR)/$(CLIENT_INSTALL_NAME)
+# ============================================================
+# Cleanup
+# ============================================================
 
 clean:
 	rm -f $(SERVER) $(CLIENT)
-

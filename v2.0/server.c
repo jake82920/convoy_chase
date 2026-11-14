@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +23,7 @@
 #define VOTE_SECONDS 30
 #define RESOURCE_SECONDS 30
 #define RESULT_PAUSE_SECONDS 5
-#define INTRO_PART_SECONDS 8
+#define INTRO_PART_SECONDS 10
 #define WARNING_SECONDS 10
 
 typedef enum
@@ -83,6 +84,21 @@ typedef struct
 } Game;
 
 static Game game;
+
+/* Server-side operational log. Never log secret roles or individual contributions. */
+static void server_log(const char *category, const char *format, ...)
+{
+    va_list args;
+
+    printf("[%s] ", category);
+
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+
+    putchar('\n');
+    fflush(stdout);
+}
 
 /* ========================================================= */
 /* Forward declarations                                      */
@@ -202,6 +218,9 @@ static bool check_victory(void)
 
         set_everyone_mode(COMM_INPUT_NONE);
 
+        server_log("GAME", "Royal Navy victory. Convoy progress: %d/%d.",
+                   game.convoy_progress, PROGRESS_TO_WIN);
+
         (void)comm_broadcast("\n=================================\n"
                              "        THE CONVOY IS SAFE\n"
                              "=================================\n"
@@ -217,6 +236,9 @@ static bool check_victory(void)
         game.phase = PHASE_GAME_OVER;
 
         set_everyone_mode(COMM_INPUT_NONE);
+
+        server_log("GAME", "Pirate victory. Pirate pursuit: %d/%d.",
+                   game.pirate_delay, DELAY_TO_WIN);
 
         (void)comm_broadcast("\n=================================\n"
                              "        BLACK SAILS AHEAD\n"
@@ -279,6 +301,10 @@ static void begin_round(void)
 
     game.proposal = PROPOSAL_NONE;
     game.phase = PHASE_DISCUSSION;
+
+    server_log("ROUND", "Captain %d is Commodore. Convoy %d/%d, pirates %d/%d.",
+               game.commodore + 1, game.convoy_progress, PROGRESS_TO_WIN,
+               game.pirate_delay, DELAY_TO_WIN);
 
     broadcast_status();
 
@@ -391,6 +417,9 @@ static void proposal_timeout(void)
 
     game.rejected_proposals++;
 
+    server_log("TIMEOUT", "Captain %d failed to complete the Commodore action. Lost turns: %d/%d.",
+               game.commodore + 1, game.rejected_proposals, REJECTIONS_FOR_DELAY);
+
     char buffer[256];
 
     snprintf(buffer, sizeof(buffer),
@@ -406,6 +435,9 @@ static void proposal_timeout(void)
 
         game.rejected_proposals = 0;
         game.pirate_delay++;
+
+        server_log("DELAY", "Three lost turns advanced pirate pursuit to %d/%d.",
+                   game.pirate_delay, DELAY_TO_WIN);
 
         (void)comm_broadcast("\nToo much time has been lost.\n"
                              "Black sails creep closer on the horizon...");
@@ -517,6 +549,7 @@ static void resolve_vote(void)
              approve, reject);
 
     (void)comm_broadcast(buffer);
+    server_log("VOTE", "%d APPROVE / %d REJECT.", approve, reject);
 
     /*
      * Tie counts as rejection.
@@ -533,12 +566,17 @@ static void resolve_vote(void)
                  game.rejected_proposals, REJECTIONS_FOR_DELAY);
 
         (void)comm_broadcast(buffer);
+        server_log("VOTE", "Proposal rejected. Lost turns: %d/%d.",
+                   game.rejected_proposals, REJECTIONS_FOR_DELAY);
 
         if (game.rejected_proposals >= REJECTIONS_FOR_DELAY)
         {
 
             game.rejected_proposals = 0;
             game.pirate_delay++;
+
+            server_log("DELAY", "Three rejected proposals advanced pirate pursuit to %d/%d.",
+                       game.pirate_delay, DELAY_TO_WIN);
 
             (void)comm_broadcast("\nToo much time has been lost.\n"
                                  "The pursuing pirates draw closer...");
@@ -554,6 +592,7 @@ static void resolve_vote(void)
     game.rejected_proposals = 0;
 
     (void)comm_broadcast("\nThe proposal is APPROVED.");
+    server_log("VOTE", "Proposal approved.");
 
     /*
      * -----------------------------------------------------
@@ -576,6 +615,9 @@ static void resolve_vote(void)
         }
 
         game.pirate_delay++;
+
+        server_log("ANCHOR", "Crews rested. Pirate pursuit: %d/%d.",
+                   game.pirate_delay, DELAY_TO_WIN);
 
         (void)comm_broadcast("\nThe anchors plunge into the water.\n"
                              "The exhausted crews are given time to rest.\n\n"
@@ -701,10 +743,16 @@ static void resolve_mission(void)
 
     set_everyone_mode(COMM_INPUT_NONE);
 
+    server_log("MISSION", "Crew committed %d total manpower (requirement %d).",
+               total, MISSION_REQUIREMENT);
+
     if (total >= MISSION_REQUIREMENT)
     {
 
         game.convoy_progress++;
+
+        server_log("MISSION", "SUCCESS. Convoy progress: %d/%d.",
+                   game.convoy_progress, PROGRESS_TO_WIN);
 
         (void)comm_broadcast("\n=================================\n"
                              "        MISSION SUCCESSFUL\n"
@@ -715,6 +763,9 @@ static void resolve_mission(void)
     {
 
         game.pirate_delay++;
+
+        server_log("MISSION", "FAILED. Pirate pursuit: %d/%d.",
+                   game.pirate_delay, DELAY_TO_WIN);
 
         (void)comm_broadcast("\n=================================\n"
                              "          MISSION FAILED\n"
@@ -835,6 +886,7 @@ static void handle_action(int player_id, const char *action)
 
             game.proposal = PROPOSAL_SAIL;
             game.phase = PHASE_CREW_SELECTION;
+            server_log("PROPOSAL", "Captain %d proposed SAIL.", player_id + 1);
 
             /* SAIL gets a fresh 30-second crew-selection period. */
             (void)comm_cancel_timer();
@@ -860,6 +912,7 @@ static void handle_action(int player_id, const char *action)
         {
 
             game.proposal = PROPOSAL_ANCHOR;
+            server_log("PROPOSAL", "Captain %d proposed ANCHOR.", player_id + 1);
 
             (void)comm_set_input_mode(player_id, COMM_INPUT_NONE);
 
@@ -935,6 +988,7 @@ static void handle_action(int player_id, const char *action)
         snprintf(buffer + offset, sizeof(buffer) - (size_t)offset, " for the mission.");
 
         (void)comm_broadcast(buffer);
+        server_log("CREW", "%s", buffer + 1);
 
         start_voting();
 
@@ -1125,7 +1179,7 @@ static void intro_part_three(void)
                          "One of you is working against the fleet.\n\n"
                          "Trust carefully.\n\n"
                          "Your secret orders are arriving now...\n"
-                         "The game begins in 8 seconds.\n"
+                         "The game begins in 10 seconds.\n"
                          "=================================");
 
     assign_roles();
@@ -1153,6 +1207,9 @@ static void handle_connect(int player_id)
 
     game.connected_players++;
 
+    server_log("CONNECT", "Captain %d connected (%d/%d).", player_id + 1,
+               game.connected_players, NUM_PLAYERS);
+
     (void)comm_set_input_mode(player_id, COMM_INPUT_NONE);
 
     char buffer[128];
@@ -1164,6 +1221,7 @@ static void handle_connect(int player_id)
 
     if (game.connected_players == NUM_PLAYERS)
     {
+        server_log("GAME", "All captains connected. Beginning introduction.");
         set_everyone_mode(COMM_INPUT_NONE);
 
         (void)comm_broadcast("\n=================================\n"
@@ -1213,7 +1271,10 @@ int main(void)
 
     init_game();
 
-    printf("Convoy Chase server starting...\n");
+    printf("=================================\n");
+    printf("     CONVOY CHASE SERVER\n");
+    printf("=================================\n");
+    printf("Starting authoritative game server...\n");
 
     int r = comm_server_init(handle_connect, handle_action, handle_chat);
 
@@ -1227,7 +1288,8 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    printf("Waiting for %d captains...\n", NUM_PLAYERS);
+    printf("Listening for TCP clients on port 8292.\n");
+    printf("Waiting for %d captains...\n\n", NUM_PLAYERS);
 
     r = comm_server_run();
 
