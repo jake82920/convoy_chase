@@ -22,7 +22,7 @@
 #define VOTE_SECONDS 30
 #define RESOURCE_SECONDS 30
 #define RESULT_PAUSE_SECONDS 5
-#define INTRO_SECONDS 12
+#define INTRO_PART_SECONDS 8
 #define WARNING_SECONDS 10
 
 typedef enum
@@ -91,6 +91,8 @@ static Game game;
 static bool parse_crew(const char *input);
 
 static void begin_round(void);
+static void intro_part_two(void);
+static void intro_part_three(void);
 
 static void discussion_warning(void);
 static void start_proposal(void);
@@ -1085,6 +1087,54 @@ static void handle_chat(int player_id, const char *message)
 }
 
 /* ========================================================= */
+/* Introduction                                              */
+/* ========================================================= */
+
+static void intro_part_two(void)
+{
+    (void)comm_broadcast("\n=================================\n"
+                         "        HOW A ROUND WORKS\n"
+                         "=================================\n\n"
+                         "One Captain becomes Commodore and proposes an action.\n\n"
+                         "SAIL\n"
+                         "  The Commodore selects 2 or 3 Captains for a mission.\n"
+                         "  Selected Captains secretly commit manpower.\n"
+                         "  The mission needs 6 total manpower to succeed.\n"
+                         "  Success advances the convoy; failure advances the pirates.\n\n"
+                         "ANCHOR\n"
+                         "  The fleet stops so exhausted crews can rest.\n"
+                         "  Every Captain recovers 3 manpower, up to a maximum of 6.\n"
+                         "  But the delay also advances the pirates.\n\n"
+                         "More instructions will follow...");
+
+    if (comm_set_timer(INTRO_PART_SECONDS, intro_part_three) < 0)
+        intro_part_three();
+}
+
+static void intro_part_three(void)
+{
+    (void)comm_broadcast("\n=================================\n"
+                         "       VOTING AND STRATEGY\n"
+                         "=================================\n\n"
+                         "Every proposal must be approved by the fleet.\n"
+                         "A tie is a rejection. Three rejected or missed proposals\n"
+                         "also advance the pirates.\n\n"
+                         "Manpower is limited. Watch who contributes, who pushes to\n"
+                         "anchor, and which missions mysteriously fail.\n\n"
+                         "Discuss, accuse, bluff, and cooperate.\n"
+                         "One of you is working against the fleet.\n\n"
+                         "Trust carefully.\n\n"
+                         "Your secret orders are arriving now...\n"
+                         "The game begins in 8 seconds.\n"
+                         "=================================");
+
+    assign_roles();
+
+    if (comm_set_timer(INTRO_PART_SECONDS, begin_round) < 0)
+        begin_round();
+}
+
+/* ========================================================= */
 /* Connections                                               */
 /* ========================================================= */
 
@@ -1119,52 +1169,18 @@ static void handle_connect(int player_id)
         (void)comm_broadcast("\n=================================\n"
                              "          CONVOY CHASE\n"
                              "=================================\n\n"
-
                              "A Royal Navy convoy carrying valuable cargo is racing\n"
                              "toward port. But one Captain is secretly a PIRATE\n"
                              "INFILTRATOR, working to delay the fleet until pursuing\n"
                              "pirates can catch it.\n\n"
-
                              "HOW TO WIN\n"
                              "----------\n"
                              "ROYAL NAVY: Advance the convoy 4 times and reach port.\n"
                              "PIRATE:     Cause 4 delays before the convoy reaches port.\n\n"
+                             "Read carefully. More instructions will follow...");
 
-                             "EACH ROUND\n"
-                             "----------\n"
-                             "One Captain becomes Commodore and proposes an action:\n\n"
-
-                             "SAIL\n"
-                             "  The Commodore selects 2 or 3 Captains for a mission.\n"
-                             "  Each selected Captain secretly commits manpower.\n"
-                             "  The mission needs 6 total manpower to succeed.\n"
-                             "  Success advances the convoy; failure advances the pirates.\n\n"
-
-                             "ANCHOR\n"
-                             "  Every Captain rests their crew and recovers 3 manpower, up to a maximum of 6.\n"
-                             "  Resting restores manpower, but the delay advances the pirates.\n\n"
-
-                             "VOTING\n"
-                             "  Every proposal must be approved by the fleet.\n"
-                             "  A tie is a rejection. Three rejected or missed proposals\n"
-                             "  also advance the pirates.\n\n"
-
-                             "STRATEGY\n"
-                             "--------\n"
-                             "Manpower is limited. Watch who contributes, who pushes to\n"
-                             "anchor, and which missions mysteriously fail.\n\n"
-                             "Discuss, accuse, bluff, and cooperate.\n"
-                             "One of you is working against the fleet.\n\n"
-                             "Trust carefully.\n\n"
-                             "The game will begin in 12 seconds...\n"
-                             "=================================");
-
-        assign_roles();
-
-        if (comm_set_timer(INTRO_SECONDS, begin_round) < 0)
-        {
-            begin_round();
-        }
+        if (comm_set_timer(INTRO_PART_SECONDS, intro_part_two) < 0)
+            intro_part_two();
     }
 }
 
