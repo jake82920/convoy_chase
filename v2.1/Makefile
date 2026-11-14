@@ -26,18 +26,13 @@ $(PLAYER): player.c comm.c comm.h
 
 
 # ============================================================
-# Fresh Ubuntu setup
+# Fresh Ubuntu Server Setup
 #
-# These targets install ALL required packages and then build
-# the appropriate executable in the current directory.
-#
-# Server:
+# Usage:
 #   sudo make install-server
-#   ./server
 #
-# Client:
-#   sudo make install-client
-#   ./player <captain 1-4> <server-address>
+# Then:
+#   ./server
 # ============================================================
 
 install-server:
@@ -45,6 +40,8 @@ install-server:
 	apt-get update
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
 		build-essential \
+		gcc \
+		make \
 		libreadline-dev
 	@echo
 	@echo "Building server..."
@@ -60,11 +57,23 @@ install-server:
 	@echo
 
 
+# ============================================================
+# Fresh Ubuntu Client Setup
+#
+# Usage:
+#   sudo make install-client
+#
+# Then:
+#   ./player <captain 1-4> <server-address>
+# ============================================================
+
 install-client:
 	@echo "Installing all client dependencies..."
 	apt-get update
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
 		build-essential \
+		gcc \
+		make \
 		libreadline-dev
 	@echo
 	@echo "Building player..."
@@ -84,29 +93,42 @@ install-client:
 
 
 # ============================================================
-# Local development
+# Full Local Installation
 #
-# Installs everything and builds both programs.
-# ============================================================
-CC = gcc
-
-CFLAGS = -Wall -Wextra -Wpedantic -std=c11 -O2
-LDLIBS = -lreadline
-
-SERVER = server
-PLAYER = player
-
-.PHONY: all install-server install-client install clean
-
-
-# ============================================================
-# Build
+# Installs every dependency and builds both server and player.
 #
-# These targets assume dependencies are already installed.
-# Use install-server or install-client on a fresh machine.
+# Usage:
+#   sudo make install
 # ============================================================
 
-all: $(SERVER) $(PLAYER)
+install:
+	@echo "Installing all Convoy Chase dependencies..."
+	apt-get update
+	DEBIAN_FRONTEND=noninteractive apt-get install -y \
+		build-essential \
+		gcc \
+		make \
+		libreadline-dev
+	@echo
+	@echo "Building server and player..."
+	$(MAKE) clean
+	$(MAKE) all
+	@echo
+	@echo "========================================"
+	@echo " Convoy Chase is ready"
+	@echo "========================================"
+	@echo
+	@echo "Server:"
+	@echo "  ./server"
+	@echo
+	@echo "Player:"
+	@echo "  ./player <captain 1-4> <server-address>"
+	@echo
 
-$(SERVER): server.c comm.c comm.h
-        $(CC) $(CFLAGS) -o $@ server.c comm.c $(LDLIBS)
+
+# ============================================================
+# Cleanup
+# ============================================================
+
+clean:
+	rm -f $(SERVER) $(PLAYER)
