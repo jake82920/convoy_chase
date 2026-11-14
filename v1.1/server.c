@@ -1167,7 +1167,7 @@ static void handle_connect(int player_id)
         set_everyone_mode(COMM_INPUT_NONE);
 
         (void)comm_broadcast("\n=================================\n"
-                             "          CONVOY CHASE\n"
+                             "      A CONVOY ON THE HIGH SEAS\n"
                              "=================================\n\n"
                              "A Royal Navy convoy carrying valuable cargo is racing\n"
                              "toward port. But one Captain is secretly a PIRATE\n"
