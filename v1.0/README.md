@@ -18,3 +18,4 @@
 
 1. Start by running `./server` on user server
 2. This will wait for each player to connect by executing `./player [1-4]`
+    - I have been testing the game via ssh (which is activated in the install script)
