@@ -86,7 +86,7 @@ int main(int argc, char **argv)
     }
 
     printf("=================================\n");
-    printf("       CONVOY CHASE\n");
+    printf("          CONVOY CHASE\n");
     printf("=================================\n\n");
 
     rl_readline_name = "convoy-chase";
