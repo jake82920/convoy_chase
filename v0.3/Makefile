@@ -37,7 +37,7 @@ $(PLAYER): player.c comm.c comm.h
 install: check-root dependencies all users install-binaries install-dbus
 	@echo ""
 	@echo "========================================="
-	@echo " Naval Convoy installation complete"
+	@echo " Convoy Chase installation complete"
 	@echo "========================================="
 	@echo ""
 	@echo "SSH server is installed and running."
