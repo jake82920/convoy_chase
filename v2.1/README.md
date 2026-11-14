@@ -1,217 +1,143 @@
-# Convoy Chase - Distributed Version
+# Convoy Chase
 
-Convoy Chase is a four-player terminal game with one authoritative server and four remote player clients. This version uses a small custom protocol over raw TCP sockets instead of the local D-Bus transport used by the earlier version.
+Convoy Chase is a four-player social deduction game for Linux.
 
-The same repository is used on every machine. Install the **server role** on one VM and the **client role** on each player VM.
+Three players are Royal Navy Captains trying to escort a valuable convoy safely to port. One player is secretly a Pirate Infiltrator trying to delay the convoy until pursuing pirates can catch it.
 
-## Files
+This version is a distributed system. The game runs on one authoritative server, and four player clients connect to it over TCP/IP.
 
-- `server.c` - game rules and authoritative game state
-- `player.c` - player terminal interface
-- `comm.c` / `comm.h` - TCP communication layer, message framing, `poll()` loops, and timers
-- `Makefile` - builds and installs the server or client role, including required packages
+## Installation
 
-The server listens on TCP port **8292**.
+Clone the repository onto the server and each player machine.
 
-## Server VM
-
-On a clean Ubuntu Server VM, clone the repository and enter this version's directory. Then run:
+On the **server**:
 
 ```bash
 sudo make install-server
+./server
 ```
 
-That command installs the required compiler tools, removes obsolete Convoy Chase/D-Bus installation artifacts if they exist, builds the server, and installs:
-
-```text
-/usr/local/bin/convoy-server
-```
-
-Start the game server with:
-
-```bash
-convoy-server
-```
-
-Find the server VM's address with:
-
-```bash
-hostname -I
-```
-
-Use that address when starting the four clients.
-
-If Ubuntu's UFW firewall is enabled, allow the game port once:
-
-```bash
-sudo ufw allow 8292/tcp
-```
-
-## Client VM
-
-On each player VM, clone the same repository and run:
+On each **player machine**:
 
 ```bash
 sudo make install-client
+./player <captain 1-4> <server-address>
 ```
 
-That command installs the compiler and Readline development package, removes obsolete Convoy Chase/D-Bus installation artifacts if they exist, builds the client, and installs:
-
-```text
-/usr/local/bin/convoy-player
-```
-
-Connect with:
+For example:
 
 ```bash
-convoy-player <captain-number> <server-address>
+./player 1 192.168.122.100
 ```
 
-For a server at `192.168.122.50`, the four VMs would run:
+Each player chooses a different Captain number from 1 through 4.
 
-```bash
-convoy-player 1 192.168.122.50
-convoy-player 2 192.168.122.50
-convoy-player 3 192.168.122.50
-convoy-player 4 192.168.122.50
-```
+Once all four Captains are connected, the game begins automatically.
 
-Captain numbers are 1 through 4, and only one active connection may claim a captain number.
+## How to Play
 
-## Quick Deployment
+A Royal Navy convoy carrying valuable cargo is racing toward port.
 
-The complete five-VM setup is therefore:
+One Captain is secretly a **PIRATE INFILTRATOR**, working to delay the fleet until pursuing pirates can catch it.
+
+### Royal Navy
+
+Advance the convoy **4 times** to reach port.
+
+### Pirate
+
+Cause **4 delays** before the convoy reaches port.
+
+## Rounds
+
+At the beginning of each round, one Captain becomes the **Commodore**.
+
+The fleet has 30 seconds to discuss its next move. During this time, players can talk, accuse, bluff, and plan.
+
+The Commodore then chooses between **SAIL** and **ANCHOR**.
+
+### SAIL
+
+The Commodore selects 2 or 3 Captains for the mission.
+
+The fleet votes on the proposed crew. If the proposal is approved, each selected Captain secretly chooses how much manpower to contribute.
+
+A mission requires a combined **6 manpower** to succeed.
+
+A successful mission advances the convoy.
+
+A failed mission advances the pirates.
+
+### ANCHOR
+
+The Commodore proposes stopping the fleet to rest.
+
+If the fleet approves, every Captain recovers **3 manpower**, up to the maximum of 6.
+
+However, stopping also gives the pursuing pirates time to advance.
+
+## Voting
+
+Every SAIL or ANCHOR proposal must be approved by the fleet.
+
+Each Captain votes to:
 
 ```text
-Server VM:   sudo make install-server   -> convoy-server
-Player 1 VM: sudo make install-client   -> convoy-player 1 <server-ip>
-Player 2 VM: sudo make install-client   -> convoy-player 2 <server-ip>
-Player 3 VM: sudo make install-client   -> convoy-player 3 <server-ip>
-Player 4 VM: sudo make install-client   -> convoy-player 4 <server-ip>
+1. APPROVE
+2. REJECT
 ```
 
-No D-Bus configuration, special Linux users, RPC framework, or separate server/client repository is required.
+A tie counts as a rejection.
 
-## Game Instructions
+Three rejected or missed proposals cause another delay and advance the pirates.
 
-### A SHIP ON THE HIGH SEAS
+An approved proposal resets the rejection counter.
 
-A Royal Navy convoy carrying valuable cargo is racing toward port. But one Captain is secretly a **PIRATE INFILTRATOR**, working to delay the fleet until pursuing pirates can catch it.
+## Manpower
 
-**ROYAL NAVY:** Advance the convoy 4 times and reach port.
+Every Captain begins with **6 manpower**.
 
-**PIRATE:** Cause 4 delays before the convoy reaches port.
+Captains selected for a mission secretly choose how much of their available manpower to contribute.
 
-### HOW A ROUND WORKS
+Committed manpower is spent when the mission is resolved.
 
-One Captain becomes Commodore and proposes an action.
+Because only the combined result is revealed, the fleet does not know which Captain caused a mission to fail.
 
-**SAIL**
+Managing manpower is therefore important. Spending too much early can leave loyal Captains exhausted, but conserving too much can cause a mission to fail.
 
-The Commodore selects 2 or 3 Captains for a mission. Selected Captains secretly commit manpower. The mission needs 6 total manpower to succeed. Success advances the convoy; failure advances the pirates.
+Anchoring restores manpower, but every anchor also brings the pirates closer.
 
-**ANCHOR**
+## Strategy
 
-The fleet stops so exhausted crews can rest. Every Captain recovers 3 manpower, up to a maximum of 6. But the delay also advances the pirates.
+Watch the other Captains carefully.
 
-### VOTING AND STRATEGY
+Who keeps proposing an anchor?
 
-Every proposal must be approved by the fleet. A tie is a rejection. Three rejected or missed proposals also advance the pirates.
+Who supports suspicious crews?
 
-Manpower is limited. Watch who contributes, who pushes to anchor, and which missions mysteriously fail.
+Why did a mission fail?
 
-Discuss, accuse, bluff, and cooperate. One of you is working against the fleet.
+Is someone conserving manpower, or deliberately sabotaging the convoy?
+
+The Pirate has the same actions as every other Captain. They must manipulate missions, votes, and the fleet's limited manpower without revealing themselves.
+
+Discuss, accuse, bluff, and cooperate.
 
 **Trust carefully.**
 
-## Local Testing
-
-To install both roles on one machine:
-
-```bash
-sudo make install
-```
-
-Start the server:
-
-```bash
-convoy-server
-```
-
-Then use four other terminals:
-
-```bash
-convoy-player 1 127.0.0.1
-convoy-player 2 127.0.0.1
-convoy-player 3 127.0.0.1
-convoy-player 4 127.0.0.1
-```
-
-This is useful for checking game behavior before testing VM networking.
-
-## Build Check
-
-To compile both programs without installing them:
-
-```bash
-make check
-```
-
-The server build does not require Readline. The client uses Readline for interactive terminal input.
-
-## Networking Check
-
-Before starting a full game, verify that a client can reach the server VM:
-
-```bash
-ping <server-ip>
-```
-
-If the server is running, you can also test its TCP port with `nc` if netcat is installed:
-
-```bash
-nc -vz <server-ip> 8292
-```
-
-`nc` is only a troubleshooting tool and is not required by Convoy Chase.
-
-## Uninstall
-
-Server VM:
-
-```bash
-sudo make uninstall-server
-```
-
-Client VM:
-
-```bash
-sudo make uninstall-client
-```
-
-Development machine with both roles:
-
-```bash
-sudo make uninstall
-```
-
-Uninstall removes Convoy Chase binaries. It intentionally does not remove GCC, Readline, Linux users, or other general system packages.
-
-## Architecture
+## Project Files
 
 ```text
-Player 1 VM ---------\
-Player 2 VM ----------\
-Player 3 VM -----------+---- TCP/IP ----> Convoy Server : 8292
-Player 4 VM ----------/
+server.c    Authoritative game state and game rules
+player.c    Player terminal interface
+comm.c      Communication implementation
+comm.h      Communication interface
+Makefile    Build and dependency installation
+README.md   Game and project documentation
 ```
 
-`server.c` remains responsible for the game. The communication details are isolated in `comm.c`, allowing the transport to change without embedding socket code throughout the game logic.
+## Communication
 
-TCP is a byte stream, so `comm.c` adds explicit message framing. Each message contains a 32-bit message type and a 32-bit payload length in network byte order, followed by the payload. The receiver retains partial data until a complete message has arrived.
+All communication between `server.c` and `player.c` is performed through the interface defined in `comm.h`.
 
-The implementation directly uses POSIX/Linux facilities including `socket()`, `bind()`, `listen()`, `accept()`, `connect()`, `send()`, `recv()`, `poll()`, and `timerfd` rather than a networking framework.
-
-## Current Scope
-
-The server rejects invalid captain numbers and duplicate simultaneous captain connections. If a player disconnects during an active game, the server detects the lost TCP connection, but automatic game-state restoration/reconnection is not currently implemented.
+The distributed
