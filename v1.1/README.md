@@ -189,25 +189,30 @@ Calls that do not require an immediate result are issued asynchronously. D-Bus a
 
 The public communication interface is declared in **`comm.h`**.
 
-The server uses functions including:
+Player-side functions:
 
-- `comm_send_message()` - sends a private message to one player.
+- `comm_init()` - initializes the player's D-Bus connection and registers the player's message, action-request, and input-mode callbacks.
+- `comm_run()` - runs the player communication event loop.
+- `comm_send_action()` - sends a requested game action to the server.
+- `comm_send_chat()` - sends a discussion message to the server.
+
+Server-side functions:
+
+- `comm_server_init()` - initializes the server's D-Bus connection and registers callbacks for player connections, actions, and chat messages.
+- `comm_server_run()` - runs the server communication event loop.
+- `comm_send_message()` - sends a message to one player.
+- `comm_request_action()` - prompts one player for a game action.
+- `comm_set_input_mode()` - changes whether one player may enter chat, an action, or no input.
+- `comm_broadcast_input_mode()` - changes the input mode for all players.
 - `comm_broadcast()` - sends a message to all connected players.
-- `comm_request_action()` - requests a game action from a player.
+- `comm_set_timer()` - starts a one-shot server timer with a callback.
+- `comm_cancel_timer()` - cancels the active server timer.
 
-The communication library also provides the infrastructure for:
+Shared cleanup:
 
-- Server and player initialization
-- Player registration
-- Player actions
-- Player chat
-- Private and broadcast messages
-- Input-mode control
-- Timers
-- D-Bus event handling
-- Cleanup
+- `comm_close()` - releases communication and event-handling resources.
 
-These operations are implemented inside `comm.c`, allowing `server.c` and `player.c` to interact through the communication API rather than directly using sd-bus.
+The library also handles player registration, D-Bus method dispatch, asynchronous communication, timers, terminal input, and event multiplexing. This keeps D-Bus communication contained in the communication library while `server.c` remains responsible for game state and rules and `player.c` remains responsible for the player interface.
 
 ## Terminal Input
 
